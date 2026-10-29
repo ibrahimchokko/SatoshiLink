@@ -122,7 +122,7 @@ Deploy guide: [`docs/DEPLOY-VERCEL.md`](docs/DEPLOY-VERCEL.md).
 
 ## Team
 
-- **Ibrahim**: full-stack engineering
-- _Teammates: add names and roles_
+- **Ibrahim Muhammad**: full-stack engineering
+- **Umar Alhassan**: full-stack engineering
 
 Track: **Greenfield Build**.

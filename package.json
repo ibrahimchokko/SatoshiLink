@@ -1,0 +1,36 @@
+{
+  "name": "satoshilink",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit",
+    "demo": "next build && next start",
+    "pay": "node scripts/run-sh.mjs pay-invoice.sh",
+    "lncli-demo": "node scripts/run-sh.mjs lncli-demo.sh",
+    "wallet:assets": "node scripts/fetch-wavelength-runtime.mjs",
+    "predev": "node scripts/fetch-wavelength-runtime.mjs",
+    "prebuild": "node scripts/fetch-wavelength-runtime.mjs"
+  },
+  "dependencies": {
+    "@lightninglabs/wavelength-react": "0.2.0",
+    "@lightninglabs/wavelength-web": "0.2.0",
+    "next": "^16.4.3",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "postcss": "^8.5.32",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3"
+  }
+}

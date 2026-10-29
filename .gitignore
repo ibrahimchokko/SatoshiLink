@@ -1,0 +1,11 @@
+node_modules/
+.next/
+out/
+.env*.local
+.env
+data/*.json
+next-env.d.ts
+*.tsbuildinfo
+.vercel
+public/wavewalletdk/
+.env.example

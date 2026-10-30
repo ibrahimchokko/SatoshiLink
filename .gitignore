@@ -8,4 +8,3 @@ next-env.d.ts
 *.tsbuildinfo
 .vercel
 public/wavewalletdk/
-.env.example

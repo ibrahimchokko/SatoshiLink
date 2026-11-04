@@ -31,6 +31,30 @@ export const createInvoiceSchema = z.object({
 
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
 
+export const withdrawSchema = z.object({
+  destination: z
+    .string({ error: 'Paste a Lightning invoice or a Bitcoin address' })
+    .trim()
+    .min(1, { error: 'Paste a Lightning invoice or a Bitcoin address' })
+    .max(2000, { error: 'That’s too long to be an invoice or address' })
+    // Accept `lightning:` / `bitcoin:` links from wallets; drop any ?query (e.g. BIP21 labels).
+    .transform((v) => v.replace(/^(lightning|bitcoin):/i, '').split('?')[0]),
+  amountSat: z
+    .union([z.number(), z.string().trim()], { error: 'Amount must be a whole number of sats' })
+    .optional()
+    .transform((v) => (v === '' || v === undefined ? undefined : typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : v))
+    .pipe(
+      z
+        .number({ error: 'Amount must be a whole number of sats' })
+        .int({ error: 'Amount must be a whole number of sats (no decimals)' })
+        .min(1, { error: 'Amount must be at least 1 sat' })
+        .max(MAX_SATS, { error: `Amount can’t be more than ${MAX_SATS.toLocaleString('en-US')} sats` })
+        .optional(),
+    ),
+});
+
+export type WithdrawInput = z.infer<typeof withdrawSchema>;
+
 /** Field → first error message, for showing next to form inputs. */
 export function fieldErrors(error: z.ZodError): Record<string, string> {
   const flat = z.flattenError(error).fieldErrors as Record<string, string[] | undefined>;

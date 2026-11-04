@@ -23,7 +23,7 @@ export function WalletInvoiceView({ id }: { id: string }) {
       <div className="card mx-auto max-w-md p-8 text-center">
         <p className="font-semibold text-slate-900">Invoice not found in this browser</p>
         <p className="mt-1 text-sm text-slate-500">Browser-wallet invoices are stored only in the browser that created them.</p>
-        <Link href="/wallet" className="btn-secondary mt-4">
+        <Link href="/wallet/browser" className="btn-secondary mt-4">
           Back to wallet
         </Link>
       </div>
@@ -33,7 +33,7 @@ export function WalletInvoiceView({ id }: { id: string }) {
   if (inv.status === 'paid') {
     return (
       <div className="flex flex-col gap-4">
-        <Link href="/wallet" className="no-print text-sm text-slate-500 hover:text-slate-800">
+        <Link href="/wallet/browser" className="no-print text-sm text-slate-500 hover:text-slate-800">
           ← Wallet
         </Link>
         <ReceiptCard inv={inv} freelancer={FREELANCER} />
@@ -47,7 +47,7 @@ export function WalletInvoiceView({ id }: { id: string }) {
   return (
     <div className="grid gap-6 lg:grid-cols-5">
       <section className="flex flex-col gap-4 lg:col-span-2">
-        <Link href="/wallet" className="text-sm text-slate-500 hover:text-slate-800">
+        <Link href="/wallet/browser" className="text-sm text-slate-500 hover:text-slate-800">
           ← Wallet
         </Link>
         <div className="card p-6">

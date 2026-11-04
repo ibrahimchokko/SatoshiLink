@@ -39,7 +39,7 @@ export function WalletHome() {
           <ul className="card divide-y divide-slate-100">
             {invoices.map((inv) => (
               <li key={inv.id}>
-                <Link href={`/wallet/invoice/${inv.id}`} className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50">
+                <Link href={`/wallet/browser/invoice/${inv.id}`} className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50">
                   <div className="min-w-0">
                     <p className="truncate font-medium text-slate-900">
                       {inv.clientName} <span className="font-normal text-slate-500">· {inv.description}</span>
@@ -105,7 +105,7 @@ function NewWalletInvoice() {
         createdAt: now.toISOString(),
         expiresAt: new Date(now.getTime() + 3600_000).toISOString(),
       });
-      router.push(`/wallet/invoice/${id}`);
+      router.push(`/wallet/browser/invoice/${id}`);
     } catch (err) {
       console.error('[wavelength] receive failed', err);
       setFormError(friendlyReceiveError(err as Error));

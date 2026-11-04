@@ -22,3 +22,9 @@ Recorded at kickoff (M0), 28 Oct 2026.
 - Browser-wallet invoices are stored in the freelancer's browser (localStorage), since Vercel has no writable disk. The client's pay link (`/w/pay#…`) carries the invoice in the URL fragment (never sent to a server).
 - Ibrahim has **no signet coins yet**.
 - **Known blocker (28 Oct, 20:40 WAT):** the public signet operator rejects invoice creation with `ARK_VERSION_MISMATCH` ("operator selected ark version 0, runtime bound to 1"). Same result on SDK 0.1.2, so it's server-side. Wallet boot/create/unlock all work.
+
+## Update — 30 Oct 2026: Withdrawals (scope change)
+- Asked for: withdrawals to external wallets, **crypto and fiat**, landing in about 30 s to 1 min.
+- **Built (crypto, real):** `/wallet` → Withdraw. Lightning invoices are paid from alice via `POST /v2/router/send` and arrive in under a second (60 s timeout). Bitcoin addresses get `POST /v1/transactions` and arrive after 1 block (regtest: click Mine in Polar). Stored in `data/withdrawals.json`.
+- **Not built (fiat):** a real bank payout needs a licensed off-ramp partner, KYC and mainnet bitcoin. A simulated payout would break the "label anything simulated / honest demo" rule, so the UI just says it isn't available, and it's listed under Next steps.
+- **Safety:** there's no login, so the withdraw API rejects requests arriving through a Cloudflare tunnel (`cf-connecting-ip` header).

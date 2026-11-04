@@ -3,9 +3,7 @@ import { connection } from 'next/server';
 import { AutoRefresh } from '@/components/AutoRefresh';
 import { StatusBadge } from '@/components/StatusBadge';
 import { formatDate, formatSats } from '@/lib/format';
-import { refreshStatus } from '@/lib/service';
-import { listInvoices } from '@/lib/store';
-import type { Invoice } from '@/lib/types';
+import { fetchBalance, invoiceTotals, listInvoicesLive } from '@/lib/service';
 
 export const metadata = { title: 'Dashboard — SatoshiLink' };
 
@@ -21,21 +19,8 @@ export default async function DashboardPage({ searchParams }: PageProps<'/dashbo
   const filter = FILTERS.some((f) => f.key === rawFilter) ? (rawFilter as string) : 'all';
 
   // Refresh open invoices from LND so the dashboard reflects the node's truth.
-  const stored = await listInvoices();
-  let nodeError: string | undefined;
-  const invoices: Invoice[] = await Promise.all(
-    stored.map(async (inv) => {
-      if (inv.status !== 'pending' && inv.status !== 'processing') return inv;
-      const s = await refreshStatus(inv);
-      nodeError ??= s.error;
-      return { ...inv, status: s.status, settledAt: s.settledAt, amountPaidSat: s.amountPaidSat };
-    }),
-  );
-
-  const paid = invoices.filter((i) => i.status === 'paid');
-  const waiting = invoices.filter((i) => i.status === 'pending' || i.status === 'processing');
-  const received = paid.reduce((sum, i) => sum + (i.amountPaidSat ?? i.amountSat), 0);
-  const outstanding = waiting.reduce((sum, i) => sum + i.amountSat, 0);
+  const [{ invoices, nodeError }, wallet] = await Promise.all([listInvoicesLive(), fetchBalance()]);
+  const { paid, waiting, received, outstanding } = invoiceTotals(invoices);
 
   const shown = filter === 'paid' ? paid : filter === 'waiting' ? waiting : invoices;
 
@@ -58,6 +43,16 @@ export default async function DashboardPage({ searchParams }: PageProps<'/dashbo
         <Stat label="Paid invoices" value={String(paid.length)} />
         <Stat label="Waiting" value={String(waiting.length)} />
       </div>
+
+      {wallet.ok && (
+        <Link href="/wallet" className="card flex flex-wrap items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50">
+          <div>
+            <p className="text-xs font-medium text-slate-500">Lightning wallet balance (your node)</p>
+            <p className="text-lg font-bold text-slate-900">{formatSats(wallet.balance.lightningSat)}</p>
+          </div>
+          <span className="text-sm font-medium text-btc-dark">Open wallet →</span>
+        </Link>
+      )}
 
       {nodeError && <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{nodeError} Showing last known statuses.</p>}
 

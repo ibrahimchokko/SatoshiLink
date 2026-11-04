@@ -29,7 +29,7 @@ export default function WalletApp({ children }: { children: React.ReactNode }) {
     return (
       <Notice title="Browser wallet can’t start on this page">
         This page isn’t cross-origin isolated, which the wallet needs. Open it directly (type{' '}
-        <code className="font-mono">/wallet</code> in the address bar) or reload the page.
+        <code className="font-mono">/wallet/browser</code> in the address bar) or reload the page.
         <div className="mt-4">
           <button className="btn-primary" onClick={() => window.location.reload()}>
             Reload

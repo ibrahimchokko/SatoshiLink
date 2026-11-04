@@ -1,9 +1,9 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { addInvoice, b64ToHex, friendlyLndError, getInfo, lookupInvoice } from './lnd';
+import { addInvoice, b64ToHex, channelBalance, friendlyLndError, getInfo, lookupInvoice, walletBalance } from './lnd';
 import { cachedStatus, mapLndInvoice } from './status';
-import { createInvoice, updateInvoice } from './store';
-import { FINAL_STATUSES, type Invoice, type NodeInfo, type StatusResponse } from './types';
+import { createInvoice, listInvoices, updateInvoice } from './store';
+import { FINAL_STATUSES, type Invoice, type NodeBalance, type NodeInfo, type StatusResponse } from './types';
 import type { CreateInvoiceInput } from './validation';
 import { truncate } from './format';
 
@@ -29,6 +29,52 @@ export async function fetchNodeInfo(): Promise<{ ok: true; node: NodeInfo } | { 
     const { message, kind } = friendlyLndError(e);
     return { ok: false, error: message, kind };
   }
+}
+
+export async function fetchBalance(): Promise<{ ok: true; balance: NodeBalance } | { ok: false; error: string; kind: string }> {
+  try {
+    const [channels, chain] = await Promise.all([channelBalance(), walletBalance()]);
+    return {
+      ok: true,
+      balance: {
+        lightningSat: Number(channels.local_balance?.sat ?? 0),
+        pendingLightningSat: Number(channels.pending_open_local_balance?.sat ?? 0),
+        onchainSat: Number(chain.confirmed_balance ?? 0),
+        unconfirmedOnchainSat: Number(chain.unconfirmed_balance ?? 0),
+      },
+    };
+  } catch (e) {
+    console.error('[lnd] balance failed:', (e as Error).message);
+    const { message, kind } = friendlyLndError(e);
+    return { ok: false, error: message, kind };
+  }
+}
+
+/** All invoices, with open ones re-checked against LND so every page shows the node's truth. */
+export async function listInvoicesLive(): Promise<{ invoices: Invoice[]; nodeError?: string }> {
+  const stored = await listInvoices();
+  let nodeError: string | undefined;
+  const invoices = await Promise.all(
+    stored.map(async (inv) => {
+      if (inv.status !== 'pending' && inv.status !== 'processing') return inv;
+      const s = await refreshStatus(inv);
+      nodeError ??= s.error;
+      return { ...inv, status: s.status, settledAt: s.settledAt, amountPaidSat: s.amountPaidSat };
+    }),
+  );
+  return { invoices, nodeError };
+}
+
+/** Totals shared by the dashboard and the wallet so both always show the same numbers. */
+export function invoiceTotals(invoices: Invoice[]) {
+  const paid = invoices.filter((i) => i.status === 'paid');
+  const waiting = invoices.filter((i) => i.status === 'pending' || i.status === 'processing');
+  return {
+    paid,
+    waiting,
+    received: paid.reduce((sum, i) => sum + (i.amountPaidSat ?? i.amountSat), 0),
+    outstanding: waiting.reduce((sum, i) => sum + i.amountSat, 0),
+  };
 }
 
 export async function createLndInvoice(input: CreateInvoiceInput): Promise<Invoice> {

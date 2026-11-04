@@ -1,14 +1,15 @@
 import 'server-only';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { Invoice } from './types';
+import type { Invoice, Withdrawal } from './types';
 
 /**
  * Tiny JSON-file repository. Writes are serialized with an in-process mutex
  * and done atomically (temp file + rename) so concurrent status polls can't corrupt the file.
  */
 
-const FILE = path.join(process.cwd(), 'data', 'invoices.json');
+const INVOICES = path.join(process.cwd(), 'data', 'invoices.json');
+const WITHDRAWALS = path.join(process.cwd(), 'data', 'withdrawals.json');
 
 let lock: Promise<unknown> = Promise.resolve();
 function withLock<T>(fn: () => Promise<T>): Promise<T> {
@@ -17,21 +18,21 @@ function withLock<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
-async function readAll(): Promise<Invoice[]> {
+async function readAll<T = Invoice>(file = INVOICES): Promise<T[]> {
   try {
-    const raw = await fs.readFile(FILE, 'utf8');
-    return raw.trim() ? (JSON.parse(raw) as Invoice[]) : [];
+    const raw = await fs.readFile(file, 'utf8');
+    return raw.trim() ? (JSON.parse(raw) as T[]) : [];
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') return [];
     throw e;
   }
 }
 
-async function writeAll(invoices: Invoice[]) {
-  await fs.mkdir(path.dirname(FILE), { recursive: true });
-  const tmp = `${FILE}.${process.pid}.${Date.now()}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(invoices, null, 2), 'utf8');
-  await fs.rename(tmp, FILE);
+async function writeAll(items: unknown[], file = INVOICES) {
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  await fs.writeFile(tmp, JSON.stringify(items, null, 2), 'utf8');
+  await fs.rename(tmp, file);
 }
 
 export async function listInvoices(): Promise<Invoice[]> {
@@ -65,5 +66,32 @@ export function updateInvoice(id: string, patch: Partial<Invoice>): Promise<Invo
     all[idx] = next;
     await writeAll(all);
     return next;
+  });
+}
+
+// ---- Withdrawals ----
+
+export async function listWithdrawals(): Promise<Withdrawal[]> {
+  const all = await readAll<Withdrawal>(WITHDRAWALS);
+  return all.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function createWithdrawal(w: Withdrawal): Promise<Withdrawal> {
+  return withLock(async () => {
+    const all = await readAll<Withdrawal>(WITHDRAWALS);
+    all.push(w);
+    await writeAll(all, WITHDRAWALS);
+    return w;
+  });
+}
+
+export function updateWithdrawal(id: string, patch: Partial<Withdrawal>): Promise<Withdrawal | undefined> {
+  return withLock(async () => {
+    const all = await readAll<Withdrawal>(WITHDRAWALS);
+    const idx = all.findIndex((w) => w.id === id);
+    if (idx === -1) return undefined;
+    all[idx] = { ...all[idx], ...patch };
+    await writeAll(all, WITHDRAWALS);
+    return all[idx];
   });
 }

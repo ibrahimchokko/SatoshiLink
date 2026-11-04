@@ -6,11 +6,12 @@ export MSYS_NO_PATHCONV=1   # stop Git Bash on Windows from rewriting arguments 
 
 ALICE_CONTAINER="${ALICE_CONTAINER:-polar-n1-alice}"
 BOB_CONTAINER="${BOB_CONTAINER:-polar-n1-bob}"
+LND_DIR="${LND_DIR:-/home/lnd/.lnd}"
 
 # Usage: lncli_on <container> <lncli args...>
 lncli_on() {
   local c="$1"; shift
-  docker exec "$c" lncli --network regtest "$@"
+  docker exec "$c" lncli --lnddir="$LND_DIR" --network regtest "$@"
 }
 alice() { lncli_on "$ALICE_CONTAINER" "$@"; }
 bob()   { lncli_on "$BOB_CONTAINER" "$@"; }

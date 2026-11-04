@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { CopyButton } from './CopyButton';
 import { QRBlock } from './QRBlock';
+import { ShareQRButton } from './ShareQRButton';
 import { StatusBadge } from './StatusBadge';
 import { usePaymentStatus } from './PaymentStatus';
 import { formatDate, formatSats } from '@/lib/format';
@@ -13,13 +14,14 @@ interface Props {
   id: string;
   paymentRequest: string;
   amountSat: number;
+  description: string;
   initialStatus: InvoiceStatus;
   expiresAt: string;
   variant: 'freelancer' | 'client';
 }
 
 /** QR + copy actions + live status. Used on both the freelancer's invoice page and the client's pay page. */
-export function InvoiceLive({ id, paymentRequest, amountSat, initialStatus, expiresAt, variant }: Props) {
+export function InvoiceLive({ id, paymentRequest, amountSat, description, initialStatus, expiresAt, variant }: Props) {
   const { status, settledAt, amountPaidSat, error } = usePaymentStatus(id, initialStatus);
   const [shareUrl, setShareUrl] = useState(`/pay/${id}`);
   useEffect(() => setShareUrl(`${window.location.origin}/pay/${id}`), [id]);
@@ -54,6 +56,11 @@ export function InvoiceLive({ id, paymentRequest, amountSat, initialStatus, expi
       </div>
 
       <QRBlock paymentRequest={paymentRequest} dimmed={!open} />
+      {open && (
+        <div className="-mt-2 flex justify-center">
+          <ShareQRButton id={id} paymentRequest={paymentRequest} amountSat={amountSat} description={description} />
+        </div>
+      )}
 
       {!open && (
         <p className="rounded-xl bg-slate-100 px-4 py-3 text-center text-sm text-slate-600">

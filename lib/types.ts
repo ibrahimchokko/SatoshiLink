@@ -19,6 +19,21 @@ export interface Invoice {
 
 export const FINAL_STATUSES: InvoiceStatus[] = ['paid', 'expired', 'canceled'];
 
+/** Money sent out of the freelancer's node to an external wallet. */
+export interface Withdrawal {
+  id: string;
+  method: 'lightning' | 'onchain';
+  destination: string; // BOLT11 invoice or bitcoin address
+  amountSat: number;
+  feeSat?: number;
+  /** lightning: final as soon as LND says SUCCEEDED. onchain: 'pending' until the tx has 1 confirmation. */
+  status: 'pending' | 'complete';
+  reference: string; // payment hash (lightning) or txid (onchain)
+  memo?: string; // description from the invoice, if any
+  createdAt: string; // ISO
+  completedAt?: string; // ISO
+}
+
 export interface NodeInfo {
   alias: string;
   pubkey: string;
@@ -27,6 +42,13 @@ export interface NodeInfo {
   activeChannels: number;
   blockHeight: number;
   version: string;
+}
+
+export interface NodeBalance {
+  lightningSat: number; // spendable over channels
+  pendingLightningSat: number; // in channels still opening
+  onchainSat: number; // confirmed on-chain
+  unconfirmedOnchainSat: number;
 }
 
 /** Shape returned by GET /api/invoices/[id]/status */

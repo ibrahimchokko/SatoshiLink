@@ -1,6 +1,6 @@
 # Deploying the online demo to Vercel (Browser wallet mode)
 
-The Vercel deployment can't reach your laptop's Polar node, so online visitors use **Browser wallet mode**: a self-custodial Lightning wallet that runs inside the browser (Wavelength, on **signet**, Bitcoin's public test network). The home page detects that no LND node is configured and points visitors to `/wallet`.
+The Vercel deployment can't reach your laptop's Polar node, so online visitors use **Browser wallet mode**: a self-custodial Lightning wallet that runs inside the browser (Wavelength, on **signet**, Bitcoin's public test network). The home page detects that no LND node is configured and points visitors to `/wallet/browser`.
 
 ## Steps
 
@@ -10,11 +10,11 @@ The Vercel deployment can't reach your laptop's Polar node, so online visitors u
 4. **Environment variables** (Settings → Environment Variables):
    - `NEXT_PUBLIC_FREELANCER_NAME` = `Amina` (or your name)
    - Do **not** add any `LND_*` variables.
-5. Click **Deploy**. Open `https://<your-app>.vercel.app/wallet`.
+5. Click **Deploy**. Open `https://<your-app>.vercel.app/wallet/browser`.
 
 ## Check it worked
 ```bash
-curl -sI https://<your-app>.vercel.app/wallet | grep -i cross-origin
+curl -sI https://<your-app>.vercel.app/wallet/browser | grep -i cross-origin
 ```
 You should see `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`.
 

@@ -32,6 +32,7 @@ export default async function InvoicePage({ params }: PageProps<'/invoice/[id]'>
           id={inv.id}
           paymentRequest={inv.paymentRequest}
           amountSat={inv.amountSat}
+          description={inv.description}
           initialStatus={inv.status}
           expiresAt={inv.expiresAt}
           variant="freelancer"

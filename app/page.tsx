@@ -25,7 +25,7 @@ export default async function Home() {
           <Link href="/new" className="btn-primary px-6 py-3 text-base">
             Create invoice
           </Link>
-          <a href="/wallet" className="btn-secondary px-6 py-3 text-base">
+          <a href="/wallet/browser" className="btn-secondary px-6 py-3 text-base">
             Try the browser wallet (signet)
           </a>
         </div>

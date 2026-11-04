@@ -62,7 +62,18 @@ function getConfig(): LndConfig {
   return cached;
 }
 
-function lnd<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+/** Streaming endpoints (e.g. /v2/router/send) return newline-delimited JSON; the last line is the final state. */
+function parseJsonOrLastLine(data: string): Record<string, unknown> {
+  const text = data.trim();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return JSON.parse(text.slice(text.lastIndexOf('\n') + 1));
+  }
+}
+
+function lnd<T>(method: 'GET' | 'POST', path: string, body?: unknown, timeoutMs = 5000): Promise<T> {
   const cfg = getConfig();
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : undefined;
@@ -74,7 +85,7 @@ function lnd<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T
         method,
         ca: cfg.cert,
         servername: cfg.servername,
-        timeout: 5000,
+        timeout: timeoutMs,
         headers: {
           'Grpc-Metadata-macaroon': cfg.macaroonHex,
           'Content-Type': 'application/json',
@@ -88,13 +99,14 @@ function lnd<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T
         res.on('end', () => {
           let json: Record<string, unknown> = {};
           try {
-            json = data ? JSON.parse(data) : {};
+            json = parseJsonOrLastLine(data);
           } catch {
             return reject(new LndError('lnd', `LND returned non-JSON (HTTP ${res.statusCode})`, res.statusCode));
           }
           const code = res.statusCode ?? 500;
-          if (code >= 400) {
-            const msg = (json.message as string) ?? (json.error as string) ?? `LND HTTP ${code}`;
+          const streamError = json.error as { message?: string } | undefined;
+          if (code >= 400 || streamError) {
+            const msg = (json.message as string) ?? streamError?.message ?? `LND HTTP ${code}`;
             return reject(new LndError('lnd', msg, code));
           }
           resolve(json as T);
@@ -141,7 +153,23 @@ export interface LndInvoice {
   payment_request?: string;
 }
 
+export interface LndChannelBalance {
+  local_balance?: { sat: string };
+  pending_open_local_balance?: { sat: string };
+}
+
+export interface LndWalletBalance {
+  confirmed_balance?: string;
+  unconfirmed_balance?: string;
+}
+
 export const getInfo = () => lnd<LndGetInfo>('GET', '/v1/getinfo');
+
+/** Sats the node can spend over its Lightning channels. */
+export const channelBalance = () => lnd<LndChannelBalance>('GET', '/v1/balance/channels');
+
+/** Sats in the node's on-chain wallet. */
+export const walletBalance = () => lnd<LndWalletBalance>('GET', '/v1/balance/blockchain');
 
 export const addInvoice = (sats: number, memo: string, expirySec = 3600) =>
   lnd<LndAddInvoiceResponse>('POST', '/v1/invoices', {
@@ -156,6 +184,70 @@ export const lookupInvoice = (rHashHex: string) => {
 };
 
 export const b64ToHex = (b64: string) => Buffer.from(b64, 'base64').toString('hex');
+
+// ---- Withdrawals (money leaving the node) ----
+
+export interface LndPayReq {
+  destination: string;
+  payment_hash: string;
+  num_satoshis?: string;
+  timestamp?: string;
+  expiry?: string;
+  description?: string;
+}
+
+export type LndPaymentFailure =
+  | 'FAILURE_REASON_NONE'
+  | 'FAILURE_REASON_TIMEOUT'
+  | 'FAILURE_REASON_NO_ROUTE'
+  | 'FAILURE_REASON_ERROR'
+  | 'FAILURE_REASON_INCORRECT_PAYMENT_DETAILS'
+  | 'FAILURE_REASON_INSUFFICIENT_BALANCE'
+  | 'FAILURE_REASON_CANCELED';
+
+export interface LndPayment {
+  payment_hash: string;
+  value_sat?: string;
+  fee_sat?: string;
+  status: 'UNKNOWN' | 'IN_FLIGHT' | 'SUCCEEDED' | 'FAILED' | 'INITIATED';
+  failure_reason?: LndPaymentFailure;
+}
+
+export interface LndTransaction {
+  tx_hash: string;
+  num_confirmations?: number;
+  total_fees?: string;
+}
+
+/** What a BOLT11 invoice asks for (amount, payee, expiry) — checked before we pay it. */
+export const decodePayReq = (payReq: string) => lnd<LndPayReq>('GET', `/v1/payreq/${encodeURIComponent(payReq)}`);
+
+/**
+ * Pays a Lightning invoice and waits for the final result (router SendPaymentV2).
+ * `amtSat` is only allowed for invoices that don't carry an amount.
+ */
+export async function sendPayment(payReq: string, opts: { amtSat?: number; feeLimitSat: number; timeoutSec: number }) {
+  const res = await lnd<{ result: LndPayment }>(
+    'POST',
+    '/v2/router/send',
+    {
+      payment_request: payReq,
+      ...(opts.amtSat ? { amt: String(opts.amtSat) } : {}),
+      fee_limit_sat: String(opts.feeLimitSat),
+      timeout_seconds: opts.timeoutSec,
+      no_inflight_updates: true,
+    },
+    (opts.timeoutSec + 5) * 1000,
+  );
+  return res.result;
+}
+
+/** Sends on-chain bitcoin from the node's wallet to an address. Returns the transaction id. */
+export const sendCoins = (addr: string, amountSat: number, label: string) =>
+  lnd<{ txid: string }>('POST', '/v1/transactions', { addr, amount: String(amountSat), target_conf: 2, label });
+
+/** The node's on-chain transactions (used to count confirmations of our withdrawals). */
+export const getTransactions = () => lnd<{ transactions?: LndTransaction[] }>('GET', '/v1/transactions');
 
 /** Friendly, non-technical message for the UI. Technical details stay in server logs. */
 export function friendlyLndError(e: unknown): { message: string; kind: LndErrorKind | 'unknown' } {

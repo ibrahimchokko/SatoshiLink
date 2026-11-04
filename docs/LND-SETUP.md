@@ -93,4 +93,5 @@ If your names differ, set `ALICE_CONTAINER` / `BOB_CONTAINER`:
 ## Troubleshooting
 - **"Couldn't reach your Lightning node"**: Polar isn't started, or the REST port in `.env.local` is wrong.
 - **TLS / certificate errors**: the paths must point at *alice's* files. Polar's cert is issued for `localhost`. The app sets that by default; override it with `LND_TLS_SERVERNAME` if needed.
-- **bob can't pay**: there's no channel, or it isn't confirmed yet. Mine 6 blocks. The channel must go **from bob to alice**.
+- **bob can't pay / insufficient balance**: an active channel can still be incoming-only. Check Bob's `local_balance`; it must exceed the channel reserve and payment amount. Open a new **outgoing** channel from Bob to Alice, then mine 6 blocks. Bob's on-chain wallet balance is separate from his Lightning channel balance.
+- **lncli can't find `/root/.lnd/tls.cert`**: Polar mounts node data under `/home/lnd/.lnd` inside its containers. The project scripts pass `--lnddir=/home/lnd/.lnd`; use the same flag in manual `docker exec ... lncli` commands.

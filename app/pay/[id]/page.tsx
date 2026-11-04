@@ -26,6 +26,7 @@ export default async function PayPage({ params }: PageProps<'/pay/[id]'>) {
           id={inv.id}
           paymentRequest={inv.paymentRequest}
           amountSat={inv.amountSat}
+          description={inv.description}
           initialStatus={inv.status}
           expiresAt={inv.expiresAt}
           variant="client"

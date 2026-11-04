@@ -21,10 +21,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/dashboard" className="rounded-lg px-2 py-1.5 hover:bg-slate-100">
                 Dashboard
               </Link>
-              {/* Plain <a>: the wallet needs a full page load to get its cross-origin isolation headers. */}
-              <a href="/wallet" className="rounded-lg px-2 py-1.5 hover:bg-slate-100">
+              <Link href="/wallet" className="rounded-lg px-2 py-1.5 hover:bg-slate-100">
                 Wallet
-              </a>
+              </Link>
               <Link href="/how-it-works" className="hidden rounded-lg px-2 py-1.5 hover:bg-slate-100 sm:inline">
                 How it works
               </Link>

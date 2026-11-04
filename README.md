@@ -15,6 +15,7 @@ Built for the Bitcoin hackathon (**Greenfield Build** track) in TypeScript with 
 - **Payment verified by the node.** The app polls `LookupInvoice` every 2.5 s, and **Paid only appears when LND reports `SETTLED`**. There is no "mark as paid" button anywhere.
 - **Receipts.** `/receipt/[id]` shows the amount paid, settle time and payment hash, and can be printed. It refuses to render until the invoice is settled.
 - **Dashboard.** Lists all invoices with status badges and totals (received / outstanding).
+- **Withdrawals.** From `/wallet`, send sats out of the node to any external wallet: paste a **Lightning invoice** (arrives in under a second) or a **Bitcoin address** (arrives after 1 block; the real network fee is shown). The invoice is decoded and checked before paying, and you confirm with a second click.
 - **Node status card.** Shows `GetInfo` output (alias, network, sync state, channels) as proof of the live LND connection.
 - **Friendly failures.** If Polar is stopped you see "Couldn't reach your Lightning node — is Polar running?" instead of a crash. Technical details go to the server log only.
 
@@ -36,15 +37,26 @@ LND REST calls used:
 | Node info | `GET /v1/getinfo` |
 | Create invoice | `POST /v1/invoices` `{ value, memo, expiry }` |
 | Verify payment | `GET /v1/invoice/{r_hash_hex}` → `state`, `amt_paid_sat`, `settle_date` |
+| Withdraw: check invoice | `GET /v1/payreq/{bolt11}` → amount, payee, expiry |
+| Withdraw over Lightning | `POST /v2/router/send` `{ payment_request, fee_limit_sat, timeout_seconds: 60 }` |
+| Withdraw on-chain | `POST /v1/transactions` `{ addr, amount }` → `txid`; confirmations via `GET /v1/transactions` |
 
 `lncli` equivalents (run inside the Polar containers):
 
 ```bash
-docker exec polar-n1-alice lncli --network regtest getinfo
-docker exec polar-n1-alice lncli --network regtest addinvoice --amt 5000 --memo "Hans – Logo design"
-docker exec polar-n1-alice lncli --network regtest lookupinvoice <r_hash>
-docker exec polar-n1-bob   lncli --network regtest payinvoice --force <bolt11>
+docker exec polar-n1-alice lncli --lnddir=/home/lnd/.lnd --network regtest getinfo
+docker exec polar-n1-alice lncli --lnddir=/home/lnd/.lnd --network regtest addinvoice --amt 5000 --memo "Hans – Logo design"
+docker exec polar-n1-alice lncli --lnddir=/home/lnd/.lnd --network regtest lookupinvoice <r_hash>
+docker exec polar-n1-bob   lncli --lnddir=/home/lnd/.lnd --network regtest payinvoice --force <bolt11>
 ```
+
+To test a withdrawal, let bob play the "external wallet" and paste one of these into the Withdraw box on `/wallet`:
+
+```bash
+docker exec polar-n1-bob lncli --lnddir=/home/lnd/.lnd --network regtest addinvoice --amt 2000 --memo "Cash out"  # Lightning
+docker exec polar-n1-bob lncli --lnddir=/home/lnd/.lnd --network regtest newaddress p2wkh                         # on-chain
+```
+After an on-chain withdrawal, click **Mine** in Polar and the withdrawal flips from "Confirming" to "Sent ✓".
 
 ## Browser wallet mode (Wavelength, signet)
 
@@ -52,8 +64,8 @@ Our online demo can't reach a laptop's LND node, so SatoshiLink also has a secon
 
 | Route | What it does |
 |---|---|
-| `/wallet` | Boots the WebAssembly wallet. Create it (password + 24-word recovery phrase) or unlock it. Shows the balance, a new-invoice form and the invoice list. |
-| `/wallet/invoice/[id]` | QR + share link. Status comes live from the wallet's activity stream (`complete` → Paid ✓ → receipt). |
+| `/wallet/browser` | Boots the WebAssembly wallet. Create it (password + 24-word recovery phrase) or unlock it. Shows the balance, a new-invoice form and the invoice list. |
+| `/wallet/browser/invoice/[id]` | QR + share link. Status comes live from the wallet's activity stream (`complete` → Paid ✓ → receipt). |
 | `/w/pay#…` | The client's pay page. The invoice travels in the URL fragment, so no server copy is needed. |
 
 How it works:
@@ -76,8 +88,9 @@ Deploy guide: [`docs/DEPLOY-VERCEL.md`](docs/DEPLOY-VERCEL.md).
 │  │    GET  /api/invoices[/id]        → list / one              │
 │  │    GET  /api/invoices/[id]/status → LND LookupInvoice       │
 │  │    GET  /api/node                 → LND GetInfo             │
+│  │    POST /api/withdrawals          → LND SendPayment/Coins   │
 │  ├─ lib/lnd.ts  (REST: macaroon + TLS, never sent to browser)  │
-│  └─ data/invoices.json                                         │
+│  └─ data/invoices.json, data/withdrawals.json                  │
 │              │ HTTPS REST + macaroon                           │
 │              ▼                                                 │
 │  Polar (Docker): bitcoind (regtest) + LND alice ◄─ch─► LND bob │
@@ -109,6 +122,8 @@ Deploy guide: [`docs/DEPLOY-VERCEL.md`](docs/DEPLOY-VERCEL.md).
 
 - **Regtest, local only.** The LND node runs in Polar on the demo laptop, so a hosted deployment can't reach it. For live judging the laptop app is exposed with `cloudflared tunnel --url http://localhost:3000`.
 - **Single freelancer.** There is one node and no accounts or login.
+- **Withdrawals are local-only.** There's no login, so `POST /api/withdrawals` refuses requests that come through a Cloudflare tunnel; only the node owner's own browser can send money out.
+- **No fiat cash-out.** Paying out to a bank account needs a licensed exchange (off-ramp) partner and real bitcoin, so it can't run on regtest.
 - **JSON file storage** (`data/invoices.json`). Fine for a demo, not for production.
 - **Polling.** Status is checked every 2.5 s. Streaming via LND's `SubscribeInvoices` is a planned upgrade.
 - **Browser wallet mode is alpha + signet.** The wallet and its invoices live in one browser, the client pay page can't show live status, and on 28 Oct 2026 the public signet server was rejecting invoice creation (`ARK_VERSION_MISMATCH`, a server-side issue).
@@ -118,6 +133,7 @@ Deploy guide: [`docs/DEPLOY-VERCEL.md`](docs/DEPLOY-VERCEL.md).
 - Mainnet with the freelancer's own node, or Wavelength's self-custodial browser wallet once it supports mainnet.
 - Multiple users, each connecting their own node.
 - Stablecoin invoices via Taproot Assets.
+- Cash-out to a Naira bank account through a licensed off-ramp partner (mainnet only).
 - PDF receipts and email delivery.
 
 ## Team

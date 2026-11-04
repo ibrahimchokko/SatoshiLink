@@ -15,7 +15,7 @@ export async function NodeStatusCard() {
             Lightning wallet in your browser (Wavelength, signet).
           </p>
         </div>
-        <a href="/wallet" className="btn-primary shrink-0">
+        <a href="/wallet/browser" className="btn-primary shrink-0">
           Open browser wallet
         </a>
       </div>
